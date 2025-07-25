@@ -10,9 +10,7 @@ import argparse
 import gradio as gr
 from funasr import AutoModel
 from videoclipper import VideoClipper
-from llm.openai_api import openai_call
-from llm.qwen_api import call_qwen_model
-from llm.g4f_openai_api import g4f_openai_call
+from llm.openrouter_api import openrouter_call, get_openrouter_models
 from utils.trans_utils import extract_timestamps
 from introduction import top_md_1, top_md_3, top_md_4
 
@@ -115,20 +113,34 @@ if __name__ == "__main__":
             font_size=font_size, font_color=font_color, 
             add_sub=True, dest_spk=video_spk_input, output_dir=output_dir
             )
+            
+    # UGLY SOLUTION
+    def llm_inference_and_clip_subti(system_content, user_content, srt_text, model, dest_text, video_spk_input, start_ost, end_ost, video_state, audio_state, output_dir):
+        llm_inference_and_clip(system_content, user_content, srt_text, model, dest_text, video_spk_input, start_ost, end_ost, video_state, audio_state, output_dir, True)
+
+    def llm_inference_and_clip(system_content, user_content, srt_text, model, dest_text, video_spk_input, start_ost, end_ost, video_state, audio_state, output_dir, add_subtitles=False):
+        # First, call the LLM
+        llm_result = openrouter_call(model, user_content+'\n'+srt_text, system_content)
         
-    def llm_inference(system_content, user_content, srt_text, model, apikey):
-        # ADD OPENROUTER SUPPORT
-        SUPPORT_LLM_PREFIX = ['qwen', 'gpt', 'g4f', 'moonshot', 'deepseek']
-        if model.startswith('qwen'):
-            return call_qwen_model(apikey, model, user_content+'\n'+srt_text, system_content)
-        if model.startswith('gpt') or model.startswith('moonshot') or model.startswith('deepseek'):
-            return openai_call(apikey, model, system_content, user_content+'\n'+srt_text)
-        elif model.startswith('g4f'):
-            model = "-".join(model.split('-')[1:])
-            return g4f_openai_call(model, system_content, user_content+'\n'+srt_text)
+        # Then, clip based on the LLM result
+        timestamp_list = extract_timestamps(llm_result)
+        output_dir = output_dir.strip()
+        if not len(output_dir):
+            output_dir = None
         else:
-            logging.error("LLM name error, only {} are supported as LLM name prefix."
-                          .format(SUPPORT_LLM_PREFIX))
+            output_dir = os.path.abspath(output_dir)
+            
+        if video_state is not None:
+            clip_video_file, message, clip_srt = audio_clipper.video_clip(
+                dest_text, start_ost, end_ost, video_state, 
+                dest_spk=video_spk_input, output_dir=output_dir, timestamp_list=timestamp_list, add_sub=add_subtitles)
+            return llm_result, clip_video_file, None, message, clip_srt
+        if audio_state is not None:
+            (sr, res_audio), message, clip_srt = audio_clipper.clip(
+                dest_text, start_ost, end_ost, audio_state, 
+                dest_spk=video_spk_input, output_dir=output_dir, timestamp_list=timestamp_list, add_sub=add_subtitles)
+            return llm_result, None, (sr, res_audio), message, clip_srt
+        return llm_result, None, None, "No video or audio state found", ""
     
     def AI_clip(LLM_res, dest_text, video_spk_input, start_ost, end_ost, video_state, audio_state, output_dir):
         timestamp_list = extract_timestamps(LLM_res)
@@ -209,24 +221,20 @@ if __name__ == "__main__":
                                 "Pay attention to ensuring the correct matching of text and timestamps. The output must strictly follow the format: 1. [Start Time-End Time] Text, note that the connector is '-'"))
                         prompt_head2 = gr.Textbox(label="Prompt User (No need to modify, will automatically concatenate the SRT subtitles from the bottom left)", value=("These are the video SRT subtitles to be clipped:"))
                         with gr.Column():
+                            # Fetch free models from OpenRouter
+                            free_models = get_openrouter_models()
+                            model_choices = [model["id"] for model in free_models] if free_models else ["openai/gpt-4o"]
+                            
                             with gr.Row():
                                 llm_model = gr.Dropdown(
-                                    choices=[
-                                        "deepseek-chat"
-                                        "qwen-plus",
-                                             "gpt-3.5-turbo", 
-                                             "gpt-3.5-turbo-0125", 
-                                             "gpt-4-turbo",
-                                             "g4f-gpt-3.5-turbo"], 
-                                    value="deepseek-chat",
+                                    choices=model_choices,
+                                    value=model_choices[0] if model_choices else "openai/gpt-4o",
                                     label="LLM Model Name",
                                     allow_custom_value=True)
-                                apikey_input = gr.Textbox(label="APIKEY")
-                            llm_button =  gr.Button("LLM Inference (First perform recognition, non-g4f requires corresponding apikey configuration)", variant="primary")
+                            with gr.Row():
+                                llm_clip_button = gr.Button("🧠 AI Clip Video", variant="primary")
+                                llm_clip_subti_button = gr.Button("🧠 AI Clip Video+Subtitles", variant="primary")
                         llm_result = gr.Textbox(label="LLM Clipper Result")
-                        with gr.Row():
-                            llm_clip_button = gr.Button("🧠 AI Clip", variant="primary")
-                            llm_clip_subti_button = gr.Button("🧠 AI Clip+Subtitles", variant="primary")
                 with gr.Tab("✂️ Text/Speaker Clipping"):
                     video_text_input = gr.Textbox(label="✏️ Text to Clip (Multiple segments connected with '#')")
                     video_spk_input = gr.Textbox(label="✏️ Speaker to Clip (Multiple speakers connected with '#')")
@@ -280,31 +288,38 @@ if __name__ == "__main__":
                                    font_color,
                                    ], 
                            outputs=[video_output, clip_message, srt_clipped])
-        llm_button.click(llm_inference,
-                         inputs=[prompt_head, prompt_head2, video_srt_output, llm_model, apikey_input],
-                         outputs=[llm_result])
-        llm_clip_button.click(AI_clip, 
-                           inputs=[llm_result,
-                                   video_text_input, 
-                                   video_spk_input, 
-                                   video_start_ost, 
-                                   video_end_ost, 
-                                   video_state, 
-                                   audio_state, 
-                                   output_dir,
-                                   ],
-                           outputs=[video_output, audio_output, clip_message, srt_clipped])
-        llm_clip_subti_button.click(AI_clip_subti, 
-                           inputs=[llm_result,
-                                   video_text_input, 
-                                   video_spk_input, 
-                                   video_start_ost, 
-                                   video_end_ost, 
-                                   video_state, 
-                                   audio_state, 
-                                   output_dir,
-                                   ],
-                           outputs=[video_output, audio_output, clip_message, srt_clipped])
+        
+        # fix the linting error
+        llm_clip_button.click(llm_inference_and_clip, 
+                           inputs=[prompt_head, 
+                               prompt_head2, 
+                               video_srt_output, 
+                               llm_model, 
+                               video_text_input, 
+                               video_spk_input, 
+                               video_start_ost, 
+                               video_end_ost, 
+                               video_state, 
+                               audio_state, 
+                               output_dir, 
+                           ], 
+                           outputs=[llm_result, video_output, audio_output, clip_message, srt_clipped])
+        llm_clip_subti_button.click(
+            llm_inference_and_clip_subti, 
+            inputs=[
+                prompt_head, 
+                prompt_head2, 
+                video_srt_output, 
+                llm_model, 
+                video_text_input, 
+                video_spk_input, 
+                video_start_ost, 
+                video_end_ost, 
+                video_state, 
+                audio_state, 
+                output_dir, 
+            ], 
+            outputs=[llm_result, video_output, audio_output, clip_message, srt_clipped])
     
     # start gradio service in local or share
     if args.listen:
