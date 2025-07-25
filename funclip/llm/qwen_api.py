@@ -18,9 +18,9 @@ def call_qwen_model(key=None,
       ]
     responses = Generation.call(model,
                                 messages=messages,
-                                result_format='message',  # 设置输出为'message'格式
-                                stream=False, # 设置输出方式为流式输出
-                                incremental_output=False  # 增量式流式输出
+                                result_format='message',  # Set output to 'message' format
+                                stream=False, # Set output method to streaming output
+                                incremental_output=False  # Incremental streaming output
                                 )
     print(responses)
     return responses['output']['choices'][0]['message']['content']

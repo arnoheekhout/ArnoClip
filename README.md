@@ -126,14 +126,14 @@ FunClip supports you to recognize and clip with commands:
 ```shell
 # step1: Recognize
 python funclip/videoclipper.py --stage 1 \
-                       --file examples/2022云栖大会_片段.mp4 \
+                       --file examples/2022 Yunqi Conference_Segment.mp4 \
                        --output_dir ./output
 # now you can find recognition results and entire SRT file in ./output/
 # step2: Clip
 python funclip/videoclipper.py --stage 2 \
-                       --file examples/2022云栖大会_片段.mp4 \
+                       --file examples/2022 Yunqi Conference_Segment.mp4 \
                        --output_dir ./output \
-                       --dest_text '我们把它跟乡村振兴去结合起来，利用我们的设计的能力' \
+                       --dest_text 'We combine it with rural revitalization and utilize our design capabilities' \
                        --start_ost 0 \
                        --end_ost 100 \
                        --output_file './output/res.mp4'
