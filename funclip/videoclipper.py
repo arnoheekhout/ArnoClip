@@ -348,7 +348,7 @@ def get_parser():
     parser.add_argument(
         "--lang",
         type=str,
-        default='zh',
+        default='en',
         help="language"
     )
     return parser

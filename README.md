@@ -1,7 +1,5 @@
 [![SVG Banners](https://svg-banners.vercel.app/api?type=rainbow&text1=FunClip%20%20🥒&width=800&height=210)](https://github.com/Akshay090/svg-banners)
 
-### <p align="center">「[简体中文](./README_zh.md) | English」</p>
-
 **<p align="center"> ⚡ Open-source, accurate and easy-to-use video clipping tool </p>**
 **<p align="center"> 🧠 Explore LLM based video clipping with FunClip </p>**
 
@@ -32,8 +30,6 @@
 - The functionalities are realized through Gradio interaction, offering simple installation and ease of use. It can also be deployed on a server and accessed via a browser.
 - FunClip supports multi-segment free clipping and automatically returns full video SRT subtitles and target segment SRT subtitles, offering a simple and convenient user experience.
 
-<a name="What's New"></a>
-## What's New🚀
 - 2024/06/12 FunClip supports recognize and clip English audio files now. Run `python funclip/launch.py -l en` to try.
 - 🔥2024/05/13 FunClip v2.0.0 now supports smart clipping with large language models, integrating models from the qwen series, GPT series, etc., providing default prompts. You can also explore and share tips for setting prompts, the usage is as follows:
   1. After the recognition, select the name of the large model and configure your own apikey;
@@ -124,13 +120,7 @@ Follow the guide below to explore LLM based clipping:
 
 <img src="docs/images/LLM_guide.png" width=360/>
 
-### B. Experience FunClip in Modelscope
-
-[FunClip@Modelscope Space⭐](https://modelscope.cn/studios/iic/funasr_app_clipvideo/summary)
-
-[FunClip@HuggingFace Space🤗](https://huggingface.co/spaces/R1ckShi/FunClip)
-
-### C. Use FunClip in command line
+### B. Use FunClip in command line
 
 FunClip supports you to recognize and clip with commands:
 ```shell
@@ -149,8 +139,6 @@ python funclip/videoclipper.py --stage 2 \
                        --output_file './output/res.mp4'
 ```
 
-<a name="Community"></a>
-## Community Communication🍟
 
 FunClip is firstly open-sourced bu FunASR team, any useful PR is welcomed.
 
@@ -159,7 +147,6 @@ You can also scan the following DingTalk group or WeChat group QR code to join t
 |                           DingTalk group                            |                     WeChat group                      |
 |:-------------------------------------------------------------------:|:-----------------------------------------------------:|
 | <div align="left"><img src="docs/images/dingding.png" width="250"/> | <img src="docs/images/wechat.png" width="215"/></div> |
-
 ## Find Speech Models in FunASR
 
 [FunASR](https://github.com/alibaba-damo-academy/FunASR) hopes to build a bridge between academic research and industrial applications on speech recognition. By supporting the training & finetuning of the industrial-grade speech recognition model released on ModelScope, researchers and developers can conduct research and production of speech recognition models more conveniently, and promote the development of speech recognition ecology. ASR for Fun！
