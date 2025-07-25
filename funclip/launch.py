@@ -19,7 +19,7 @@ from introduction import top_md_1, top_md_3, top_md_4
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='argparse testing')
-    parser.add_argument('--lang', '-l', type=str, default = "zh", help="language")
+    parser.add_argument('--lang', '-l', type=str, default = "en", help="language")
     parser.add_argument('--share', '-s', action='store_true', help="if to establish gradio share link")
     parser.add_argument('--port', '-p', type=int, default=7860, help='port number')
     parser.add_argument('--listen', action='store_true', help="if to listen to all hosts")
