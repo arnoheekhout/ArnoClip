@@ -5,13 +5,13 @@ if __name__ == '__main__':
     client = Client()
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": "你好你的名字是什么"}],
+        messages=[{"role": "user", "content": "Hello, what is your name?"}],
     )
     print(response.choices[0].message.content)
  
 
 def g4f_openai_call(model="gpt-3.5-turbo", 
-                    user_content="如何做西红柿炖牛腩？", 
+                    user_content="How to make tomato braised beef?", 
                     system_content=None):
     client = Client()
     if system_content is not None and len(system_content.strip()):

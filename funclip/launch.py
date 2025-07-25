@@ -117,6 +117,7 @@ if __name__ == "__main__":
             )
         
     def llm_inference(system_content, user_content, srt_text, model, apikey):
+        # ADD OPENROUTER SUPPORT
         SUPPORT_LLM_PREFIX = ['qwen', 'gpt', 'g4f', 'moonshot', 'deepseek']
         if model.startswith('qwen'):
             return call_qwen_model(apikey, model, user_content+'\n'+srt_text, system_content)
@@ -238,7 +239,7 @@ if __name__ == "__main__":
                 with gr.Row():
                     font_size = gr.Slider(minimum=10, maximum=100, value=32, step=2, label="🔠 Subtitle Font Size")
                     font_color = gr.Radio(["black", "white", "green", "red"], label="🌈 Subtitle Color", value='white')
-                    # font = gr.Radio(["黑体", "Alibaba Sans"], label="Font")
+                    # font = gr.Radio(["Heiti", "Alibaba Sans"], label="Font")
                 video_output = gr.Video(label="Video Clipped")
                 audio_output = gr.Audio(label="Audio Clipped")
                 clip_message = gr.Textbox(label="⚠️ Clipping Log")

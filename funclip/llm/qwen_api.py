@@ -4,7 +4,7 @@ from dashscope import Generation
 
 def call_qwen_model(key=None, 
                     model="qwen_plus", 
-                    user_content="如何做西红柿炖牛腩？", 
+                    user_content="How to make tomato braised beef?", 
                     system_content=None):
     dashscope.api_key = key
     if system_content is not None and len(system_content.strip()):

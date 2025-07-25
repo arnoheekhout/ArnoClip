@@ -24,7 +24,7 @@ if __name__ == '__main__':
     
 def openai_call(apikey, 
                 model="gpt-3.5-turbo", 
-                user_content="如何做西红柿炖牛腩？", 
+                user_content="How to make tomato braised beef?", 
                 system_content=None):
     base_url = None
     if model.startswith("deepseek"):
