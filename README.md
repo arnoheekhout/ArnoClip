@@ -11,11 +11,9 @@
 
 <div align="center">  
 <h4>
-<a href="#What's New"> What's New </a>
 ｜<a href="#On Going"> On Going </a>
 ｜<a href="#Install"> Install </a>
 ｜<a href="#Usage"> Usage </a>
-｜<a href="#Community"> Community </a>
 </h4>
 </div>
 
