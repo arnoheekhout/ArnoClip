@@ -3,7 +3,6 @@
 **<p align="center"> ⚡ Open-source, accurate and easy-to-use video clipping tool </p>**
 **<p align="center"> 🧠 Explore LLM based video clipping with FunClip </p>**
 
-<p align="center"> <img src="docs/images/interface.jpg" width=444/></p>
 
 <p align="center" class="trendshift">
 <a href="https://trendshift.io/repositories/10126" target="_blank"><img src="https://trendshift.io/api/badge/repositories/10126" alt="alibaba-damo-academy%2FFunClip | Trendshift" style="width: 250px; height: 55px;" width="300" height="55"/></a>
@@ -17,7 +16,7 @@
 </h4>
 </div>
 
-**FunClip** is a fully open-source, locally deployed automated video clipping tool. It leverages Alibaba TONGYI speech lab's open-source [FunASR](https://github.com/alibaba-damo-academy/FunASR) Paraformer series models to perform speech recognition on videos. Then, users can freely choose text segments or speakers from the recognition results and click the clip button to obtain the video clip corresponding to the selected segments (Quick Experience [Modelscope⭐](https://modelscope.cn/studios/iic/funasr_app_clipvideo/summary) [HuggingFace🤗](https://huggingface.co/spaces/R1ckShi/FunClip)).
+**FunClip** is a fully open-source, locally deployed automated video clipping tool. It leverages Alibaba TONGYI speech lab's open-source [FunASR](https://github.com/alibaba-damo-academy/FunASR) Paraformer series models to perform speech recognition on videos. Then, users can freely choose text segments or speakers from the recognition results and click the clip button to obtain the video clip corresponding to the selected segments.
 
 ## Highlights🎨
 
@@ -104,7 +103,6 @@ wget https://isv-data.oss-cn-hangzhou.aliyuncs.com/ics/MaaS/ClipVideo/STHeitiMed
 ## Use FunClip
 
 ### A. Use FunClip as local Gradio Service
-You can establish your own FunClip service which is same as [Modelscope Space](https://modelscope.cn/studios/iic/funasr_app_clipvideo/summary) as follow:
 ```shell
 python funclip/launch.py
 # '-l en' for English audio recognize
