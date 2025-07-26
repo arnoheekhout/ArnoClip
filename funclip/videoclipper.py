@@ -170,6 +170,54 @@ class VideoClipper():
         # res_text, res_srt = self.recog((16000, wav), state)
         return self.recog((16000, wav), sd_switch, state, hotwords, output_dir)
 
+    def convert_to_9_16(self, video_clip, focus_area=None):
+        """
+        Convert video to 9:16 aspect ratio (1080x1920) with smart cropping
+        """
+        # Get original dimensions
+        original_width, original_height = video_clip.size
+        original_aspect = original_width / original_height
+        
+        # Target dimensions for 9:16 (1080x1920)
+        target_width, target_height = 1080, 1920
+        target_aspect = target_width / target_height
+        
+        if original_aspect > target_aspect:
+            # Original is wider than target - crop sides
+            new_width = int(original_height * target_aspect)
+            new_height = original_height
+            
+            if focus_area:
+                # Focus on the speaker area
+                focus_x = (focus_area[0] + focus_area[2]) / 2  # Center of focus area
+                crop_x1 = max(0, min(focus_x - new_width/2, original_width - new_width))
+                crop_x2 = crop_x1 + new_width
+            else:
+                # Center crop
+                crop_x1 = (original_width - new_width) // 2
+                crop_x2 = crop_x1 + new_width
+                
+            cropped = video_clip.crop(x1=crop_x1, x2=crop_x2, y1=0, y2=original_height)
+        else:
+            # Original is taller than target - crop top/bottom
+            new_width = original_width
+            new_height = int(original_width / target_aspect)
+            
+            if focus_area:
+                # Focus on the speaker area
+                focus_y = (focus_area[1] + focus_area[3]) / 2  # Center of focus area
+                crop_y1 = max(0, min(focus_y - new_height/2, original_height - new_height))
+                crop_y2 = crop_y1 + new_height
+            else:
+                # Center crop
+                crop_y1 = (original_height - new_height) // 2
+                crop_y2 = crop_y1 + new_height
+                
+            cropped = video_clip.crop(x1=0, x2=original_width, y1=crop_y1, y2=crop_y2)
+        
+        # Resize to target dimensions
+        return cropped.resize((target_width, target_height))
+
     def video_clip(self, 
                    dest_text, 
                    start_ost, 
@@ -180,7 +228,9 @@ class VideoClipper():
                    add_sub=False, 
                    dest_spk=None, 
                    output_dir=None,
-                   timestamp_list=None):
+                   timestamp_list=None,
+                   multiple_clips=False,
+                   focus_speaker=False):
         # get from state
         recog_res_raw = state['recog_res_raw']
         timestamp = state['timestamp']
@@ -224,58 +274,118 @@ class VideoClipper():
         ts = all_ts
         # ts.sort()
         clip_srt = ""
+        clip_files = []
+        
         if len(ts):
+            # Create clips directory if it doesn't exist
+            clips_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'clips')
+            os.makedirs(clips_dir, exist_ok=True)
+            
             if self.lang == 'en' and isinstance(sentences, str):
                 sentences = sentences.split()
-            start, end = ts[0][0] / 16000, ts[0][1] / 16000
-            srt_clip, subs, srt_index = generate_srt_clip(sentences, start, end, begin_index=srt_index, time_acc_ost=time_acc_ost)
-            start, end = start+start_ost/1000.0, end+end_ost/1000.0
-            video_clip = video.subclip(start, end)
-            start_end_info = "from {} to {}".format(start, end)
-            clip_srt += srt_clip
-            if add_sub:
-                generator = lambda txt: TextClip(txt, font='./font/STHeitiMedium.ttc', fontsize=font_size, color=font_color)
-                subtitles = SubtitlesClip(subs, generator)
-                video_clip = CompositeVideoClip([video_clip, subtitles.set_pos(('center','bottom'))])
-            concate_clip = [video_clip]
-            time_acc_ost += end+end_ost/1000.0 - (start+start_ost/1000.0)
-            for _ts in ts[1:]:
-                start, end = _ts[0] / 16000, _ts[1] / 16000
-                srt_clip, subs, srt_index = generate_srt_clip(sentences, start, end, begin_index=srt_index-1, time_acc_ost=time_acc_ost)
-                if not len(subs):
-                    continue
-                chi_subs = []
-                sub_starts = subs[0][0][0]
-                for sub in subs:
-                    chi_subs.append(((sub[0][0]-sub_starts, sub[0][1]-sub_starts), sub[1]))
-                start, end = start+start_ost/1000.0, end+end_ost/1000.0
-                _video_clip = video.subclip(start, end)
-                start_end_info += ", from {} to {}".format(str(start)[:5], str(end)[:5])
-                clip_srt += srt_clip
-                if add_sub:
-                    generator = lambda txt: TextClip(txt, font='./font/STHeitiMedium.ttc', fontsize=font_size, color=font_color)
-                    subtitles = SubtitlesClip(chi_subs, generator)
-                    _video_clip = CompositeVideoClip([_video_clip, subtitles.set_pos(('center','bottom'))])
-                    # _video_clip.write_videofile("debug.mp4", audio_codec="aac")
-                concate_clip.append(copy.copy(_video_clip))
-                time_acc_ost += end+end_ost/1000.0 - (start+start_ost/1000.0)
-            message = "{} periods found in the audio: ".format(len(ts)) + start_end_info
-            logging.warning("Concating...")
-            if len(concate_clip) > 1:
-                video_clip = concatenate_videoclips(concate_clip)
-            # clip_video_file = clip_video_file[:-4] + '_no{}.mp4'.format(self.GLOBAL_COUNT)
-            if output_dir is not None:
-                os.makedirs(output_dir, exist_ok=True)
-                _, file_with_extension = os.path.split(clip_video_file)
-                clip_video_file_name, _ = os.path.splitext(file_with_extension)
-                print(output_dir, clip_video_file)
-                clip_video_file = os.path.join(output_dir, "{}_no{}.mp4".format(clip_video_file_name, self.GLOBAL_COUNT))
-                temp_audio_file = os.path.join(output_dir, "{}_tempaudio_no{}.mp4".format(clip_video_file_name, self.GLOBAL_COUNT))
+            
+            if multiple_clips:
+                # Create separate clips for each timestamp
+                clip_srt = ""  # Reset for multiple clips
+                for i, _ts in enumerate(ts):
+                    start, end = _ts[0] / 16000, _ts[1] / 16000
+                    # For each clip, we need to generate subtitles with timing starting from 0
+                    srt_clip, subs, _ = generate_srt_clip(sentences, start, end, begin_index=0, time_acc_ost=0.0)
+                    start, end = start+start_ost/1000.0, end+end_ost/1000.0
+                    video_clip = video.subclip(start, end)
+                    
+                    # Convert to 9:16 aspect ratio
+                    video_clip = self.convert_to_9_16(video_clip)
+                    
+                    if add_sub and len(subs) > 0:
+                        generator = lambda txt: TextClip(txt, font='./font/STHeitiMedium.ttc', fontsize=font_size, color=font_color)
+                        subtitles = SubtitlesClip(subs, generator)
+                        video_clip = CompositeVideoClip([video_clip, subtitles.set_pos(('center','bottom'))])
+                    
+                    # Save individual clip
+                    clip_filename = os.path.join(clips_dir, f"clip_{self.GLOBAL_COUNT}_{i+1}.mp4")
+                    temp_audio_file = os.path.join(clips_dir, f"clip_{self.GLOBAL_COUNT}_{i+1}_temp.mp4")
+                    # Use multiple threads for faster processing
+                    video_clip.write_videofile(
+                        clip_filename, 
+                        audio_codec="aac", 
+                        temp_audiofile=temp_audio_file,
+                        threads=4,  # Use 4 threads for encoding
+                        preset='ultrafast'  # Use ultrafast preset for speed
+                    )
+                    clip_files.append(clip_filename)
+                    
+                    clip_srt += f"{i+1}\n{srt_clip}"
+                
+                message = f"{len(ts)} separate clips created in the clips folder"
+                self.GLOBAL_COUNT += 1
+                return clip_files, message, clip_srt
             else:
-                clip_video_file = clip_video_file[:-4] + '_no{}.mp4'.format(self.GLOBAL_COUNT)
-                temp_audio_file = clip_video_file[:-4] + '_tempaudio_no{}.mp4'.format(self.GLOBAL_COUNT)
-            video_clip.write_videofile(clip_video_file, audio_codec="aac", temp_audiofile=temp_audio_file)
-            self.GLOBAL_COUNT += 1
+                # Original behavior - concatenate clips
+                start, end = ts[0][0] / 16000, ts[0][1] / 16000
+                srt_clip, subs, srt_index = generate_srt_clip(sentences, start, end, begin_index=srt_index, time_acc_ost=time_acc_ost)
+                start, end = start+start_ost/1000.0, end+end_ost/1000.0
+                video_clip = video.subclip(start, end)
+                
+                # Convert to 9:16 aspect ratio
+                video_clip = self.convert_to_9_16(video_clip)
+                
+                start_end_info = "from {} to {}".format(start, end)
+                clip_srt += srt_clip
+                if add_sub and len(subs) > 0:
+                    generator = lambda txt: TextClip(txt, font='./font/STHeitiMedium.ttc', fontsize=font_size, color=font_color)
+                    subtitles = SubtitlesClip(subs, generator)
+                    video_clip = CompositeVideoClip([video_clip, subtitles.set_pos(('center','bottom'))])
+                concate_clip = [video_clip]
+                time_acc_ost += end+end_ost/1000.0 - (start+start_ost/1000.0)
+                for _ts in ts[1:]:
+                    start, end = _ts[0] / 16000, _ts[1] / 16000
+                    srt_clip, subs, srt_index = generate_srt_clip(sentences, start, end, begin_index=srt_index-1, time_acc_ost=time_acc_ost)
+                    if not len(subs):
+                        continue
+                    chi_subs = []
+                    sub_starts = subs[0][0][0]
+                    for sub in subs:
+                        chi_subs.append(((sub[0][0]-sub_starts, sub[0][1]-sub_starts), sub[1]))
+                    start, end = start+start_ost/1000.0, end+end_ost/1000.0
+                    _video_clip = video.subclip(start, end)
+                    
+                    # Convert to 9:16 aspect ratio
+                    _video_clip = self.convert_to_9_16(_video_clip)
+                    
+                    start_end_info += ", from {} to {}".format(str(start)[:5], str(end)[:5])
+                    clip_srt += srt_clip
+                    if add_sub and len(chi_subs) > 0:
+                        generator = lambda txt: TextClip(txt, font='./font/STHeitiMedium.ttc', fontsize=font_size, color=font_color)
+                        subtitles = SubtitlesClip(chi_subs, generator)
+                        _video_clip = CompositeVideoClip([_video_clip, subtitles.set_pos(('center','bottom'))])
+                        # _video_clip.write_videofile("debug.mp4", audio_codec="aac")
+                    concate_clip.append(copy.copy(_video_clip))
+                    time_acc_ost += end+end_ost/1000.0 - (start+start_ost/1000.0)
+                message = "{} periods found in the audio: ".format(len(ts)) + start_end_info
+                logging.warning("Concating...")
+                if len(concate_clip) > 1:
+                    video_clip = concatenate_videoclips(concate_clip)
+                # clip_video_file = clip_video_file[:-4] + '_no{}.mp4'.format(self.GLOBAL_COUNT)
+                if output_dir is not None:
+                    os.makedirs(output_dir, exist_ok=True)
+                    _, file_with_extension = os.path.split(clip_video_file)
+                    clip_video_file_name, _ = os.path.splitext(file_with_extension)
+                    print(output_dir, clip_video_file)
+                    clip_video_file = os.path.join(output_dir, "{}_no{}.mp4".format(clip_video_file_name, self.GLOBAL_COUNT))
+                    temp_audio_file = os.path.join(output_dir, "{}_tempaudio_no{}.mp4".format(clip_video_file_name, self.GLOBAL_COUNT))
+                else:
+                    clip_video_file = clip_video_file[:-4] + '_no{}.mp4'.format(self.GLOBAL_COUNT)
+                    temp_audio_file = clip_video_file[:-4] + '_tempaudio_no{}.mp4'.format(self.GLOBAL_COUNT)
+                # Use multiple threads for faster processing
+                video_clip.write_videofile(
+                    clip_video_file, 
+                    audio_codec="aac", 
+                    temp_audiofile=temp_audio_file,
+                    threads=4,  # Use 4 threads for encoding
+                    preset='ultrafast'  # Use ultrafast preset for speed
+                )
+                self.GLOBAL_COUNT += 1
         else:
             clip_video_file = video_filename
             message = "No period found in the audio, return raw speech. You may check the recognition result and try other destination text."

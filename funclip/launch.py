@@ -52,7 +52,7 @@ if __name__ == "__main__":
 
     def video_clip(dest_text, video_spk_input, start_ost, end_ost, state, output_dir):
         return audio_clipper.video_clip(
-            dest_text, start_ost, end_ost, state, dest_spk=video_spk_input, output_dir=output_dir
+            dest_text, start_ost, end_ost, state, dest_spk=video_spk_input, output_dir=output_dir, multiple_clips=False
             )
 
     def mix_recog(video_input, audio_input, hotwords, output_dir):
@@ -96,11 +96,20 @@ if __name__ == "__main__":
         if video_state is not None:
             clip_video_file, message, clip_srt = audio_clipper.video_clip(
                 dest_text, start_ost, end_ost, video_state, dest_spk=video_spk_input, output_dir=output_dir)
-            return clip_video_file, None, message, clip_srt
+            # Handle both single file and list of files
+            if isinstance(clip_video_file, str) and os.path.exists(clip_video_file):
+                return [clip_video_file], None, message, clip_srt
+            elif isinstance(clip_video_file, list):
+                # Filter out non-existent files
+                valid_files = [f for f in clip_video_file if os.path.exists(f)]
+                return valid_files, None, message, clip_srt
+            else:
+                return [], None, message, clip_srt
         if audio_state is not None:
             (sr, res_audio), message, clip_srt = audio_clipper.clip(
                 dest_text, start_ost, end_ost, audio_state, dest_spk=video_spk_input, output_dir=output_dir)
-            return None, (sr, res_audio), message, clip_srt
+            return [], (sr, res_audio), message, clip_srt
+        return [], None, "No video or audio state found", ""
     
     def video_clip_addsub(dest_text, video_spk_input, start_ost, end_ost, state, output_dir, font_size, font_color):
         output_dir = output_dir.strip()
@@ -108,15 +117,46 @@ if __name__ == "__main__":
             output_dir = None
         else:
             output_dir = os.path.abspath(output_dir)
-        return audio_clipper.video_clip(
+        result = audio_clipper.video_clip(
             dest_text, start_ost, end_ost, state, 
             font_size=font_size, font_color=font_color, 
-            add_sub=True, dest_spk=video_spk_input, output_dir=output_dir
+            add_sub=True, dest_spk=video_spk_input, output_dir=output_dir, multiple_clips=False
+            )
+        # Handle both single file and list of files
+        if isinstance(result, str) and os.path.exists(result):
+            return [result], "Subtitles added successfully", ""
+        elif isinstance(result, list):
+            # Filter out non-existent files
+            valid_files = [f for f in result if os.path.exists(f)]
+            return valid_files, "Subtitles added successfully", ""
+        elif isinstance(result, tuple) and len(result) >= 3:
+            # Handle tuple return format (clip_file, message, srt_clip)
+            clip_file, message, srt_clip = result
+            if isinstance(clip_file, str) and os.path.exists(clip_file):
+                return [clip_file], message, srt_clip
+            elif isinstance(clip_file, list):
+                # Filter out non-existent files
+                valid_files = [f for f in clip_file if os.path.exists(f)]
+                return valid_files, message, srt_clip
+            else:
+                return [], message, srt_clip
+        else:
+            return [], "Clipping completed", ""
+            
+    def video_clip_multiple(dest_text, video_spk_input, start_ost, end_ost, state, output_dir, add_sub=False):
+        output_dir = output_dir.strip()
+        if not len(output_dir):
+            output_dir = None
+        else:
+            output_dir = os.path.abspath(output_dir)
+        return audio_clipper.video_clip(
+            dest_text, start_ost, end_ost, state, 
+            dest_spk=video_spk_input, output_dir=output_dir, multiple_clips=True, add_sub=add_sub
             )
             
     # UGLY SOLUTION
     def llm_inference_and_clip_subti(system_content, user_content, srt_text, model, dest_text, video_spk_input, start_ost, end_ost, video_state, audio_state, output_dir):
-        llm_inference_and_clip(system_content, user_content, srt_text, model, dest_text, video_spk_input, start_ost, end_ost, video_state, audio_state, output_dir, True)
+        return llm_inference_and_clip(system_content, user_content, srt_text, model, dest_text, video_spk_input, start_ost, end_ost, video_state, audio_state, output_dir, True)
 
     def llm_inference_and_clip(system_content, user_content, srt_text, model, dest_text, video_spk_input, start_ost, end_ost, video_state, audio_state, output_dir, add_subtitles=False):
         # First, call the LLM
@@ -131,16 +171,16 @@ if __name__ == "__main__":
             output_dir = os.path.abspath(output_dir)
             
         if video_state is not None:
-            clip_video_file, message, clip_srt = audio_clipper.video_clip(
+            clip_files, message, clip_srt = audio_clipper.video_clip(
                 dest_text, start_ost, end_ost, video_state, 
-                dest_spk=video_spk_input, output_dir=output_dir, timestamp_list=timestamp_list, add_sub=add_subtitles)
-            return llm_result, clip_video_file, None, message, clip_srt
+                dest_spk=video_spk_input, output_dir=output_dir, timestamp_list=timestamp_list, add_sub=add_subtitles, multiple_clips=True)
+            return llm_result, clip_files, None, message, clip_srt
         if audio_state is not None:
             (sr, res_audio), message, clip_srt = audio_clipper.clip(
                 dest_text, start_ost, end_ost, audio_state, 
                 dest_spk=video_spk_input, output_dir=output_dir, timestamp_list=timestamp_list, add_sub=add_subtitles)
-            return llm_result, None, (sr, res_audio), message, clip_srt
-        return llm_result, None, None, "No video or audio state found", ""
+            return llm_result, [], (sr, res_audio), message, clip_srt
+        return llm_result, [], None, "No video or audio state found", ""
     
     # gradio interface
     theme = gr.Theme.load("funclip/utils/theme.json")
@@ -173,9 +213,10 @@ if __name__ == "__main__":
                             label="Prompt System (Modify as needed, but it's best not to change the main body and requirements)",
                             value="""You are a social media expert skilled at finding viral video moments using only subtitles (SRT). Given the SRT input, identify the most viral, shocking, rage-inducing, emotionally engaging, or interesting segments.
                                     Instructions:
-                                    - For every 1 hour of video, extract ~15 strong segments.
+                                    - For every 1 hour of video, extract ~5 strong segments. For shorter videos, extract fewer segments (e.g., 3-5 for a 10-15 minute video, 2-3 for a 5-10 minute video).
                                     - Segments must be temporally continuous. Merge adjacent subtitles where appropriate to form coherent clips.
                                     - Ensure all timestamps are accurate and match the spoken text.
+                                    - Focus on high-quality, engaging content rather than quantity.
                                     - Output only in the format below:
 
                                     1. [Start Time - End Time] Text
@@ -215,10 +256,10 @@ if __name__ == "__main__":
                     font_size = gr.Slider(minimum=10, maximum=100, value=32, step=2, label="🔠 Subtitle Font Size")
                     font_color = gr.Radio(["black", "white", "green", "red"], label="🌈 Subtitle Color", value='white')
                     # font = gr.Radio(["Heiti", "Alibaba Sans"], label="Font")
-                video_output = gr.Video(label="Video Clipped")
+                clips_gallery = gr.Gallery(label="Multiple Video Clips", columns=3, object_fit="cover", height="auto")
                 audio_output = gr.Audio(label="Audio Clipped")
                 clip_message = gr.Textbox(label="⚠️ Clipping Log")
-                srt_clipped = gr.Textbox(label="📖 Clipped SRT Subtitles")            
+                srt_clipped = gr.Textbox(label="📖 Clipped SRT Subtitles")
                 
         recog_button.click(mix_recog, 
                             inputs=[video_input, 
@@ -243,7 +284,7 @@ if __name__ == "__main__":
                                    audio_state, 
                                    output_dir
                                    ],
-                           outputs=[video_output, audio_output, clip_message, srt_clipped])
+                           outputs=[clips_gallery, audio_output, clip_message, srt_clipped])
         clip_subti_button.click(video_clip_addsub, 
                            inputs=[video_text_input, 
                                    video_spk_input, 
@@ -254,7 +295,7 @@ if __name__ == "__main__":
                                    font_size, 
                                    font_color,
                                    ], 
-                           outputs=[video_output, clip_message, srt_clipped])
+                           outputs=[clips_gallery, clip_message, srt_clipped])
         
         # fix the linting error
         llm_clip_button.click(llm_inference_and_clip, 
@@ -270,7 +311,7 @@ if __name__ == "__main__":
                                audio_state, 
                                output_dir, 
                            ], 
-                           outputs=[llm_result, video_output, audio_output, clip_message, srt_clipped])
+                           outputs=[llm_result, clips_gallery, audio_output, clip_message, srt_clipped])
         llm_clip_subti_button.click(
             llm_inference_and_clip_subti, 
             inputs=[
@@ -286,7 +327,7 @@ if __name__ == "__main__":
                 audio_state, 
                 output_dir, 
             ], 
-            outputs=[llm_result, video_output, audio_output, clip_message, srt_clipped])
+            outputs=[llm_result, clips_gallery, audio_output, clip_message, srt_clipped])
     
     # start gradio service in local or share
     if args.listen:
