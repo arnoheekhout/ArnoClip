@@ -192,43 +192,46 @@ if __name__ == "__main__":
                     video_input = gr.Video(label="Video Input")
                     audio_input = gr.Audio(label="Audio Input")
                 with gr.Column():
-                    gr.Examples(['https://isv-data.oss-cn-hangzhou.aliyuncs.com/ics/MaaS/ClipVideo/%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E5%A4%9A%E8%AF%BB%E4%B9%A6%EF%BC%9F%E8%BF%99%E6%98%AF%E6%88%91%E5%90%AC%E8%BF%87%E6%9C%80%E5%A5%BD%E7%9A%84%E7%AD%94%E6%A1%88-%E7%89%87%E6%AE%B5.mp4', 
-                                 'https://isv-data.oss-cn-hangzhou.aliyuncs.com/ics/MaaS/ClipVideo/2022%E4%BA%91%E6%A0%96%E5%A4%A7%E4%BC%9A_%E7%89%87%E6%AE%B52.mp4', 
-                                 'https://isv-data.oss-cn-hangzhou.aliyuncs.com/ics/MaaS/ClipVideo/%E4%BD%BF%E7%94%A8chatgpt_%E7%89%87%E6%AE%B5.mp4'],
-                                [video_input],
-                                label='Demo Video')
-                    gr.Examples(['https://isv-data.oss-cn-hangzhou.aliyuncs.com/ics/MaaS/ClipVideo/%E8%AE%BF%E8%B0%88.mp4'],
-                                [video_input],
-                                label='Multi-speaker Demo Video')
-                    gr.Examples(['https://isv-data.oss-cn-hangzhou.aliyuncs.com/ics/MaaS/ClipVideo/%E9%B2%81%E8%82%83%E9%87%87%E8%AE%BF%E7%89%87%E6%AE%B51.wav'],
-                                [audio_input],
-                                label="Demo Audio")
-                    with gr.Column():
-                        # with gr.Row():
-                    # video_sd_switch = gr.Radio(["No", "Yes"], label="👥Distinguish Speakers", value='No')
-                        hotwords_input = gr.Textbox(label="🚒 Hotwords (Can be empty, multiple hotwords separated by spaces, Chinese hotwords only supported)")
-                        output_dir = gr.Textbox(label="📁 File Output Dir (Can be empty, works stably on Linux and Mac systems)", value=" ")
-                        with gr.Row():
-                            recog_button = gr.Button("👂 ASR", variant="primary")
-                            recog_button2 = gr.Button("👂👫 ASR+SD", variant="primary")
+                    # with gr.Row():
+                # video_sd_switch = gr.Radio(["No", "Yes"], label="👥Distinguish Speakers", value='No')
+                    hotwords_input = gr.Textbox(label="🚒 Hotwords (Can be empty, multiple hotwords separated by spaces, Chinese hotwords only supported)")
+                    output_dir = gr.Textbox(label="📁 File Output Dir (Can be empty, works stably on Linux and Mac systems)", value=" ")
+                    with gr.Row():
+                        recog_button = gr.Button("👂 ASR", variant="primary")
+                        recog_button2 = gr.Button("👂👫 ASR+SD", variant="primary")
                 video_text_output = gr.Textbox(label="✏️ Recognition Result")
                 video_srt_output = gr.Textbox(label="📖 SRT Subtitles")
             with gr.Column():
                 with gr.Tab("🧠 LLM Clipping"):
                     with gr.Column():
-                        prompt_head = gr.Textbox(label="Prompt System (Modify as needed, but it's best not to change the main body and requirements)", value=("You are a video SRT subtitle analysis editor. Input the video's SRT subtitles, "
-                                "analyze the exciting and as continuous as possible segments and clip them out. Output no more than four segments, merging multiple sentences and their timestamps that are temporally continuous in the segments into one. "
-                                "Pay attention to ensuring the correct matching of text and timestamps. The output must strictly follow the format: 1. [Start Time-End Time] Text, note that the connector is '-'"))
+                        
+                        prompt_head = gr.Textbox(
+                            label="Prompt System (Modify as needed, but it's best not to change the main body and requirements)",
+                            value="""You are a social media expert skilled at finding viral video moments using only subtitles (SRT). Given the SRT input, identify the most viral, shocking, rage-inducing, emotionally engaging, or interesting segments.
+                                    Instructions:
+                                    - For every 1 hour of video, extract ~15 strong segments.
+                                    - Segments must be temporally continuous. Merge adjacent subtitles where appropriate to form coherent clips.
+                                    - Ensure all timestamps are accurate and match the spoken text.
+                                    - Output only in the format below:
+
+                                    1. [Start Time - End Time] Text
+                                    2. [Start Time - End Time] Text
+                                    ...
+
+                                    Use a dash (-) between timestamps. No extra text, commentary, or formatting outside the list.
+                                  """
+                        )
+                        
                         prompt_head2 = gr.Textbox(label="Prompt User (No need to modify, will automatically concatenate the SRT subtitles from the bottom left)", value=("These are the video SRT subtitles to be clipped:"))
                         with gr.Column():
                             # Fetch free models from OpenRouter
                             free_models = get_openrouter_models()
-                            model_choices = [model["id"] for model in free_models] if free_models else ["openai/gpt-4o"]
+                            model_choices = [model["id"] for model in free_models] if free_models else ["qwen/qwen3-235b-a22b-2507:free"]
                             
                             with gr.Row():
                                 llm_model = gr.Dropdown(
                                     choices=model_choices,
-                                    value=model_choices[0] if model_choices else "openai/gpt-4o",
+                                    value=model_choices[0] if model_choices else "qwen/qwen3-235b-a22b-2507:free",
                                     label="LLM Model Name",
                                     allow_custom_value=True)
                             with gr.Row():
